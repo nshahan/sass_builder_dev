@@ -1,0 +1,19 @@
+name: main_package
+description: An example package showing different types of .scss imports.
+version: 0.0.1
+
+environment:
+  sdk: '>=1.24.0 <2.0.0-dev.infinity'
+
+dependencies:
+  other_package: ^0.0.1
+  sass_builder: ^0.0.1
+
+dependency_overrides:
+  other_package:
+    path: ../other_package
+  sass_builder:
+    path: ../../
+
+transformers:
+- sass_builder

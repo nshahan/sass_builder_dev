@@ -1,0 +1,17 @@
+name: other_package
+description: An example package containing .scss files that are imorted by
+  main_package.
+version: 0.0.1
+
+environment:
+  sdk: '>=1.24.0 <2.0.0-dev.infinity'
+
+dependencies:
+  sass_builder: ^0.0.1
+
+dependency_overrides:
+  sass_builder:
+    path: ../
+
+transformers:
+- sass_builder
