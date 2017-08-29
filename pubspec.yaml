@@ -1,5 +1,6 @@
 name: sass_builder
-description: A starting point for Dart libraries or applications.
+description: A Builder to compile .css files from .scss sources using the Dart
+  implementation of Sass.
 version: 0.0.1
 
 environment:
