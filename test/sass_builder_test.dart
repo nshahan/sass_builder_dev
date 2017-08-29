@@ -23,7 +23,8 @@ void main() {
       var importIds = sassBuilder.importedAssets(id, contents);
 
       expect(importIds.length, equals(1));
-      expect(importIds, contains(new AssetId('test_package', 'dir/mixins.scss')));
+      expect(
+          importIds, contains(new AssetId('test_package', 'dir/mixins.scss')));
     });
 
     test('Single import, with extension, same folder test', () {
@@ -38,7 +39,8 @@ void main() {
       var id = new AssetId('test_package', 'dir1/dir2/test_file.scss');
       var importIds = sassBuilder.importedAssets(id, contents);
       expect(importIds.length, equals(1));
-      expect(importIds, contains(new AssetId('test_package', 'dir1/dir2/mixins.scss')));
+      expect(importIds,
+          contains(new AssetId('test_package', 'dir1/dir2/mixins.scss')));
     });
 
     test('Single package import test', () {
@@ -53,7 +55,8 @@ void main() {
       var id = new AssetId('test_package', 'dir1/test_file.scss');
       var importIds = sassBuilder.importedAssets(id, contents);
       expect(importIds.length, equals(1));
-      expect(importIds, contains(new AssetId('other_package', 'lib/dir2/mixins.scss')));
+      expect(importIds,
+          contains(new AssetId('other_package', 'lib/dir2/mixins.scss')));
     });
 
     test('Multiple imports test', () {
@@ -70,9 +73,12 @@ void main() {
       var id = new AssetId('test_package', 'dir/test_file.scss');
       var importIds = sassBuilder.importedAssets(id, contents);
       expect(importIds.length, equals(3));
-      expect(importIds, contains(new AssetId('other_package', 'lib/dir2/mixins.scss')));
-      expect(importIds, contains(new AssetId('test_package', 'dir/mixins.scss')));
-      expect(importIds, contains(new AssetId('test_package', 'dir/other_dir/styles.scss')));
+      expect(importIds,
+          contains(new AssetId('other_package', 'lib/dir2/mixins.scss')));
+      expect(
+          importIds, contains(new AssetId('test_package', 'dir/mixins.scss')));
+      expect(importIds,
+          contains(new AssetId('test_package', 'dir/other_dir/styles.scss')));
     });
 
     test('Multiple import lines test', () {
@@ -90,9 +96,12 @@ void main() {
       var id = new AssetId('test_package', 'dir/test_file.scss');
       var importIds = sassBuilder.importedAssets(id, contents);
       expect(importIds.length, equals(3));
-      expect(importIds, contains(new AssetId('other_package', 'lib/dir2/mixins.scss')));
-      expect(importIds, contains(new AssetId('test_package', 'dir/mixins.scss')));
-      expect(importIds, contains(new AssetId('test_package', 'dir/other_dir/styles.scss')));
+      expect(importIds,
+          contains(new AssetId('other_package', 'lib/dir2/mixins.scss')));
+      expect(
+          importIds, contains(new AssetId('test_package', 'dir/mixins.scss')));
+      expect(importIds,
+          contains(new AssetId('test_package', 'dir/other_dir/styles.scss')));
     });
   });
 }

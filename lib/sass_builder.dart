@@ -12,32 +12,36 @@ final _importBlockRegExp = new RegExp('@import ([^;]*);');
 final _fileNameRegExp = new RegExp('(?:\'|\")([^\'\"]*)(?:\'|\")');
 
 /// A `Builder` to compile .css files from .scss source using dart-sass.
+///
+/// NOTE: Because Sass requires reading from the disk this `Builder` copies all
+/// `Assets` to a temporary directory with a structure similar to that defined
+/// in `.packages`. Sass will read from the temporary directory when compiling.
 class SassBuilder extends Builder {
-
   @override
   Future build(BuildStep buildStep) async {
     var inputId = buildStep.inputId;
 
-    // Do not produce any output for .scss partials.
-    if (!basename(inputId.path).startsWith('_')) {
-      var dependencies = new List<AssetId>();
+    if (basename(inputId.path).startsWith('_')) {
+      // Do not produce any output for .scss partials.
+      return;
+    }
 
-      var tempDir = await Directory.systemTemp.createTemp();
+    // Copy all this asset and all imported assets to the temp directory.
+    var tempDir = await Directory.systemTemp.createTemp();
+    var tempAssetPath = await _readAndCopyImports(
+        inputId, new Set<AssetId>(), buildStep, tempDir);
 
-      // Copy all this asset and all imported assets to the temp directory.
-      var tempAssetPath =
-          await readAndCopyImports(inputId, dependencies, buildStep, tempDir);
+    if (tempAssetPath == null) {
+      print('sass_builder Error. Unable to read: ${inputId.path}');
+      throw new InvalidInputException(inputId);
+    }
 
-      if (tempAssetPath == null) {
-        print('sass_builder Error. Unable to read: ${inputId.path}');
-        throw new InvalidInputException(inputId);
-      }
-
+    try {
       // Compile the css.
-      var tempPackageResolver = _tempDirPackgeResolver(tempDir);
-      buildStep.writeAsString(inputId.addExtension('.css'),
-          compile(tempAssetPath, packageResolver: tempPackageResolver));
-
+      var cssOutput = compile(tempAssetPath,
+          packageResolver: _tempDirPackageResolver(tempDir));
+      buildStep.writeAsString(inputId.addExtension('.css'), '${cssOutput}\n');
+    } finally {
       await tempDir.delete(recursive: true);
     }
   }
@@ -47,12 +51,12 @@ class SassBuilder extends Builder {
     '.scss': const ['.scss.css']
   };
 
-  Future<String> readAndCopyImports(AssetId id, List<AssetId> dependencies,
+  Future<String> _readAndCopyImports(AssetId id, Set<AssetId> dependencies,
       BuildStep buildStep, Directory tempDir) async {
-
-    if (! await buildStep.canRead(id)) {
+    if (!await buildStep.canRead(id)) {
       // Try same asset path except starting the filename with an underscore.
-      id = new AssetId(id.package, join(dirname(id.path), '_${basename(id.path)}'));
+      id = new AssetId(
+          id.package, join(dirname(id.path), '_${basename(id.path)}'));
     }
 
     if (!dependencies.contains(id) && await buildStep.canRead(id)) {
@@ -70,7 +74,7 @@ class SassBuilder extends Builder {
 
       // Recurse on all imports.
       for (var importId in importedAssets(id, contents)) {
-        await readAndCopyImports(importId, dependencies, buildStep, tempDir);
+        await _readAndCopyImports(importId, dependencies, buildStep, tempDir);
       }
 
       return fileCopy.path;
@@ -87,7 +91,7 @@ class SassBuilder extends Builder {
     // and break dependency cycles. If the import is commented out but the file
     // still exists this builder will still have a dependency on the asset even
     // though it is not used.
-    var importedAssets = new List<AssetId>();
+    var importedAssets = new Set<AssetId>();
 
     for (var importBlock in _importBlockRegExp.allMatches(contents)) {
       var imports = _fileNameRegExp.allMatches(importBlock.group(1));
@@ -102,7 +106,7 @@ class SassBuilder extends Builder {
   }
 
   // Returns a `SyncPackageResolver` for the packages in the `tempDir`.
-  SyncPackageResolver _tempDirPackgeResolver(Directory tempDir) {
+  SyncPackageResolver _tempDirPackageResolver(Directory tempDir) {
     var packages = new Map<String, Uri>();
     for (FileSystemEntity dir in tempDir.listSync(followLinks: false)) {
       packages[basename(dir.path)] =
