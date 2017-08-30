@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 
 import 'package:build/build.dart';
@@ -28,18 +29,15 @@ class SassBuilder extends Builder {
 
     // Copy all this asset and all imported assets to the temp directory.
     var tempDir = await Directory.systemTemp.createTemp();
-    var tempAssetPath = await _readAndCopyImports(
-        inputId, new Set<AssetId>(), buildStep, tempDir);
-
-    if (tempAssetPath == null) {
-      print('sass_builder Error. Unable to read: ${inputId.path}');
-      throw new InvalidInputException(inputId);
-    }
+    await _readAndCopyImports(inputId, buildStep, tempDir);
 
     try {
       // Compile the css.
+      var tempAssetPath = join(tempDir.path, inputId.package, inputId.path);
       var cssOutput = compile(tempAssetPath,
           packageResolver: _tempDirPackageResolver(tempDir));
+
+      // Write the builder output
       buildStep.writeAsString(inputId.addExtension('.css'), '${cssOutput}\n');
     } finally {
       await tempDir.delete(recursive: true);
@@ -51,37 +49,44 @@ class SassBuilder extends Builder {
     '.scss': const ['.scss.css']
   };
 
-  Future<String> _readAndCopyImports(AssetId id, Set<AssetId> dependencies,
-      BuildStep buildStep, Directory tempDir) async {
-    if (!await buildStep.canRead(id)) {
-      // Try same asset path except starting the filename with an underscore.
-      id = new AssetId(
-          id.package, join(dirname(id.path), '_${basename(id.path)}'));
-    }
+  // Reads all assets transitively from `id` and copies them to `tempDir`.
+  //
+  // Uses `buildStep to read the assets and standard file IO to write to the
+  // temp directory.
+  Future _readAndCopyImports(
+      AssetId id, BuildStep buildStep, Directory tempDir) async {
+    var copiedAssets = new Set<AssetId>();
+    var assetsToCopy = new Queue<AssetId>();
+    assetsToCopy.add(id);
 
-    if (!dependencies.contains(id) && await buildStep.canRead(id)) {
-      // Read the contents of the import with the Builder.
-      var contents = await buildStep.readAsString(id);
+    while (assetsToCopy.isNotEmpty) {
+      id = assetsToCopy.removeFirst();
 
-      // Copy the file to the temp directory.
-      var fileCopyName = join(tempDir.path, id.package, id.path);
-      var fileCopy = await new File(join(tempDir.path, fileCopyName))
-          .create(recursive: true);
-      await fileCopy.writeAsString(contents);
-
-      // Remember this file in case it is imported again.
-      dependencies.add(id);
-
-      // Recurse on all imports.
-      for (var importId in importedAssets(id, contents)) {
-        await _readAndCopyImports(importId, dependencies, buildStep, tempDir);
+      if (!await buildStep.canRead(id)) {
+        // Try same asset path except starting the filename with an underscore.
+        id = new AssetId(
+            id.package, join(dirname(id.path), '_${basename(id.path)}'));
       }
 
-      return fileCopy.path;
-    }
+      if (!await buildStep.canRead(id)) {
+        // Only copy imports that are found. If there is a problem with a
+        // missing file, let sass compilation fail and report it.
+        continue;
+      }
+      var contents = await buildStep.readAsString(id);
 
-    // Was not able to read the root asset of the .scss imports
-    return null;
+      var tempAssetPath = join(tempDir.path, id.package, id.path);
+      var fileCopy = await new File(tempAssetPath).create(recursive: true);
+      await fileCopy.writeAsString(contents);
+      copiedAssets.add(id);
+
+      for (var importId in importedAssets(id, contents)) {
+        if (!copiedAssets.contains(importId) &&
+            !assetsToCopy.contains(importId)) {
+          assetsToCopy.add(importId);
+        }
+      }
+    }
   }
 
   /// Returns the `AssetId`s of all the transitive imports from `contents`.
