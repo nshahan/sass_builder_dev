@@ -11,7 +11,7 @@ dependencies:
 
 dependency_overrides:
   sass_builder:
-    path: ../
+    path: ../../
 
 transformers:
 - sass_builder
