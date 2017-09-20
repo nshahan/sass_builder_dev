@@ -1,0 +1,5 @@
+@mixin my-style($color) {
+  background-color: $color;
+  color: white;
+  font-weight: bold;
+}

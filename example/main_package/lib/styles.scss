@@ -1,0 +1,9 @@
+@import 'mixins/mixins';
+
+p {
+  background-color: black;
+}
+
+div {
+  @include my-style(green);
+}
